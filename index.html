@@ -1,0 +1,107 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoMe - Coin Collector</title>
+
+<style>
+body{
+text-align:center;
+font-family:Arial, sans-serif;
+background:#1e1e1e;
+color:white;
+margin:0;
+}
+
+h1{
+margin-top:15px;
+}
+
+canvas{
+background:#333;
+border:3px solid white;
+margin-top:10px;
+}
+
+.footer{
+margin-top:20px;
+font-size:14px;
+color:#ccc;
+}
+</style>
+</head>
+
+<body>
+
+<h1>MoMe</h1>
+<p>Coin Collector Game</p>
+<p>Score: <span id="score">0</span></p>
+
+<canvas id="gameCanvas" width="400" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let player = {x:200, y:200, size:20};
+let coin = {x:100, y:100, size:12};
+let score = 0;
+
+function drawPlayer(){
+ctx.fillStyle="cyan";
+ctx.fillRect(player.x, player.y, player.size, player.size);
+}
+
+function drawCoin(){
+ctx.fillStyle="gold";
+ctx.beginPath();
+ctx.arc(coin.x, coin.y, coin.size, 0, Math.PI*2);
+ctx.fill();
+}
+
+function movePlayer(e){
+if(e.key==="ArrowUp") player.y-=10;
+if(e.key==="ArrowDown") player.y+=10;
+if(e.key==="ArrowLeft") player.x-=10;
+if(e.key==="ArrowRight") player.x+=10;
+checkCoin();
+}
+
+function checkCoin(){
+let dx = player.x - coin.x;
+let dy = player.y - coin.y;
+let distance = Math.sqrt(dx*dx + dy*dy);
+
+if(distance < 25){
+score++;
+document.getElementById("score").innerText = score;
+
+coin.x = Math.random()*380;
+coin.y = Math.random()*380;
+}
+}
+
+function gameLoop(){
+ctx.clearRect(0,0,400,400);
+drawPlayer();
+drawCoin();
+requestAnimationFrame(gameLoop);
+}
+
+document.addEventListener("keydown", movePlayer);
+gameLoop();
+</script>
+
+<footer style="margin-top:25px;padding:15px;background:#111;color:#ccc;font-size:14px;">
+<p>© 2026 MoMe Games. All rights reserved.</p>
+<p>Developed by Tuntisoft.</p>
+<p>If you want to place advertisements in this game, please contact:
+<a href="mailto:thwinthithtoolay@outlook.com" style="color:#00d4ff;">
+thwinthithtoolay@outlook.com
+</a></p>
+</footer>
+
+</body>
+</html>
