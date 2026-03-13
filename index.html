@@ -3,107 +3,461 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="site-key" content="6LdCC4gsAAAAAHxqXHgzoQy6qMAfU-3CM_8wv98b">
-<meta name="secret-key" content="6LdCC4gsAAAAAFAi-lP31TGx4nsZVC7wdWorC_iy">
-<title>MoMe - Coin Collector</title>
+<title>MoMe Arcade v2</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
+
 body{
-text-align:center;
-font-family:Arial, sans-serif;
-background:#1e1e1e;
-color:white;
 margin:0;
+font-family:Arial;
+background:#111;
+color:white;
+text-align:center;
 }
 
-h1{
-margin-top:15px;
+button{
+padding:10px 18px;
+margin:5px;
+font-size:16px;
+cursor:pointer;
 }
 
-canvas{
-background:#333;
+#game{
+position:relative;
+width:400px;
+height:500px;
+background:#222;
+margin:20px auto;
+overflow:hidden;
 border:3px solid white;
-margin-top:10px;
 }
 
-.footer{
-margin-top:20px;
-font-size:14px;
-color:#ccc;
+#cube{
+position:absolute;
+width:40px;
+height:40px;
+bottom:10px;
+left:180px;
+background:#00ffc8;
 }
+
+.coin{
+position:absolute;
+width:20px;
+height:20px;
+background:gold;
+border-radius:50%;
+top:-20px;
+}
+
+.obstacle{
+position:absolute;
+width:40px;
+height:40px;
+background:red;
+top:-40px;
+}
+
+.card{
+width:60px;
+height:60px;
+background:#333;
+display:inline-block;
+margin:5px;
+line-height:60px;
+font-size:22px;
+cursor:pointer;
+}
+
 </style>
 </head>
 
 <body>
 
-<h1>MoMe</h1>
-<p>Coin Collector Game</p>
-<p>Score: <span id="score">0</span></p>
+<h1>MoMe Arcade v2</h1>
 
-<canvas id="gameCanvas" width="400" height="400"></canvas>
+<div id="menu">
+
+<button onclick="openGame('cube')">Cube Escape</button>
+
+<button onclick="openGame('coin')">Coin Collector</button>
+
+<button onclick="openProfile()">Player Profile</button>
+
+<button onclick="openLeaderboard()">Leaderboard</button>
+
+</div>
+
+<div id="content"></div>
 
 <script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
 
-let player = {x:200, y:200, size:20};
-let coin = {x:100, y:100, size:12};
-let score = 0;
+// ==========================
+// SUPABASE
+// ==========================
 
-function drawPlayer(){
-ctx.fillStyle="cyan";
-ctx.fillRect(player.x, player.y, player.size, player.size);
+const supabaseUrl="https://atzcoxkslomommgmjohp.supabase.co"
+
+const supabaseKey="YOUR_ANON_KEY"
+
+const supabase=supabase.createClient(supabaseUrl,supabaseKey)
+
+
+// ==========================
+// PLAYER
+// ==========================
+
+let playerName=localStorage.getItem("player")||"Unknown"
+
+let coins=parseInt(localStorage.getItem("coins"))||0
+
+let cubeX=180
+
+let score=0
+
+let level=1
+
+let gameOver=false
+
+let skin="#00ffc8"
+
+
+// ==========================
+// PROFILE
+// ==========================
+
+function openProfile(){
+
+document.getElementById("content").innerHTML=`
+
+<h2>Player Profile</h2>
+
+<input id="nameInput" placeholder="Player name">
+
+<button onclick="saveName()">Save</button>
+
+<p>Name: ${playerName}</p>
+
+<p>Coins: ${coins}</p>
+
+`
+
 }
 
-function drawCoin(){
-ctx.fillStyle="gold";
-ctx.beginPath();
-ctx.arc(coin.x, coin.y, coin.size, 0, Math.PI*2);
-ctx.fill();
+function saveName(){
+
+playerName=document.getElementById("nameInput").value
+
+localStorage.setItem("player",playerName)
+
+alert("Saved")
+
 }
 
-function movePlayer(e){
-if(e.key==="ArrowUp") player.y-=10;
-if(e.key==="ArrowDown") player.y+=10;
-if(e.key==="ArrowLeft") player.x-=10;
-if(e.key==="ArrowRight") player.x+=10;
-checkCoin();
+
+// ==========================
+// LEADERBOARD
+// ==========================
+
+async function openLeaderboard(){
+
+document.getElementById("content").innerHTML="<h2>Leaderboard</h2><div id='scores'>Loading...</div>"
+
+const {data}=await supabase
+.from("leaderboard")
+.select("*")
+.order("score",{ascending:false})
+.limit(10)
+
+let html="<ol>"
+
+data.forEach(p=>{
+html+=`<li>${p.player_name} - ${p.score}</li>`
+})
+
+html+="</ol>"
+
+document.getElementById("scores").innerHTML=html
+
 }
 
-function checkCoin(){
-let dx = player.x - coin.x;
-let dy = player.y - coin.y;
-let distance = Math.sqrt(dx*dx + dy*dy);
 
-if(distance < 25){
-score++;
-document.getElementById("score").innerText = score;
+// ==========================
+// SAVE SCORE
+// ==========================
 
-coin.x = Math.random()*380;
-coin.y = Math.random()*380;
-}
-}
+async function saveScore(game,score){
 
-function gameLoop(){
-ctx.clearRect(0,0,400,400);
-drawPlayer();
-drawCoin();
-requestAnimationFrame(gameLoop);
+await supabase
+.from("leaderboard")
+.insert([{
+player_name:playerName,
+score:score,
+game:game
+}])
+
 }
 
-document.addEventListener("keydown", movePlayer);
-gameLoop();
+
+// ==========================
+// CUBE ESCAPE
+// ==========================
+
+function openGame(game){
+
+if(game==="cube") cubeGame()
+
+if(game==="coin") coinGame()
+
+}
+
+
+function cubeGame(){
+
+document.getElementById("content").innerHTML=`
+
+<h2>Cube Escape</h2>
+
+<p>Score: <span id="score">0</span></p>
+
+<p>Level: <span id="level">1</span></p>
+
+<p>Coins: <span id="coins">${coins}</span></p>
+
+<div id="game">
+
+<div id="cube"></div>
+
+</div>
+
+<button onclick="moveLeft()">⬅</button>
+
+<button onclick="moveRight()">➡</button>
+
+`
+
+cubeX=180
+score=0
+level=1
+gameOver=false
+
+startCube()
+
+}
+
+
+function moveLeft(){
+
+cubeX-=20
+if(cubeX<0) cubeX=0
+
+document.getElementById("cube").style.left=cubeX+"px"
+
+}
+
+function moveRight(){
+
+cubeX+=20
+if(cubeX>360) cubeX=360
+
+document.getElementById("cube").style.left=cubeX+"px"
+
+}
+
+
+function startCube(){
+
+document.addEventListener("keydown",e=>{
+
+if(e.key==="ArrowLeft") moveLeft()
+
+if(e.key==="ArrowRight") moveRight()
+
+})
+
+
+setInterval(()=>{
+
+if(gameOver) return
+
+createObstacle()
+
+},1000)
+
+
+setInterval(()=>{
+
+if(gameOver) return
+
+createCoin()
+
+},1500)
+
+}
+
+
+function createObstacle(){
+
+const o=document.createElement("div")
+
+o.className="obstacle"
+
+o.style.left=Math.random()*360+"px"
+
+document.getElementById("game").appendChild(o)
+
+let y=-40
+
+const fall=setInterval(()=>{
+
+y+=6+(level)
+
+o.style.top=y+"px"
+
+const cubeRect=document.getElementById("cube").getBoundingClientRect()
+
+const obsRect=o.getBoundingClientRect()
+
+if(
+
+cubeRect.left<obsRect.right &&
+cubeRect.right>obsRect.left &&
+cubeRect.top<obsRect.bottom &&
+cubeRect.bottom>obsRect.top
+
+){
+
+gameOver=true
+
+alert("Game Over Score "+score)
+
+saveScore("cube",score)
+
+clearInterval(fall)
+
+}
+
+
+if(y>500){
+
+o.remove()
+
+score++
+
+document.getElementById("score").textContent=score
+
+if(score%10===0){
+
+level++
+
+document.getElementById("level").textContent=level
+
+}
+
+clearInterval(fall)
+
+}
+
+},30)
+
+}
+
+
+function createCoin(){
+
+const c=document.createElement("div")
+
+c.className="coin"
+
+c.style.left=Math.random()*380+"px"
+
+document.getElementById("game").appendChild(c)
+
+let y=-20
+
+const fall=setInterval(()=>{
+
+y+=4
+
+c.style.top=y+"px"
+
+const cubeRect=document.getElementById("cube").getBoundingClientRect()
+
+const coinRect=c.getBoundingClientRect()
+
+if(
+
+cubeRect.left<coinRect.right &&
+cubeRect.right>coinRect.left &&
+cubeRect.top<coinRect.bottom &&
+cubeRect.bottom>coinRect.top
+
+){
+
+coins++
+
+localStorage.setItem("coins",coins)
+
+document.getElementById("coins").textContent=coins
+
+c.remove()
+
+clearInterval(fall)
+
+}
+
+if(y>500){
+
+c.remove()
+
+clearInterval(fall)
+
+}
+
+},30)
+
+}
+
+
+// ==========================
+// COIN GAME
+// ==========================
+
+function coinGame(){
+
+document.getElementById("content").innerHTML=`
+
+<h2>Coin Collector</h2>
+
+<p>Score: <span id="score">0</span></p>
+
+<div id="game">
+
+<div id="cube"></div>
+
+</div>
+
+<button onclick="moveLeft()">⬅</button>
+
+<button onclick="moveRight()">➡</button>
+
+`
+
+cubeX=180
+score=0
+
+setInterval(()=>{
+
+createCoin()
+
+},1000)
+
+}
+
 </script>
-
-<footer style="margin-top:25px;padding:15px;background:#111;color:#ccc;font-size:14px;">
-<p>© 2026 MoMe Games. All rights reserved.</p>
-<p>Developed by Tuntisoft.</p>
-<p>If you want to place advertisements in this game, please contact:
-<a href="mailto:thwinthithtoolay@outlook.com" style="color:#00d4ff;">
-thwinthithtoolay@outlook.com
-</a></p>
-</footer>
 
 </body>
 </html>
+```
