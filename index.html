@@ -2,460 +2,183 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MoMe Arcade v2</title>
+<title>MoMe Arcade v2 Working</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-
-body{
-margin:0;
-font-family:Arial;
-background:#111;
-color:white;
-text-align:center;
-}
-
-button{
-padding:10px 18px;
-margin:5px;
-font-size:16px;
-cursor:pointer;
-}
-
-#game{
-position:relative;
-width:400px;
-height:500px;
-background:#222;
-margin:20px auto;
-overflow:hidden;
-border:3px solid white;
-}
-
-#cube{
-position:absolute;
-width:40px;
-height:40px;
-bottom:10px;
-left:180px;
-background:#00ffc8;
-}
-
-.coin{
-position:absolute;
-width:20px;
-height:20px;
-background:gold;
-border-radius:50%;
-top:-20px;
-}
-
-.obstacle{
-position:absolute;
-width:40px;
-height:40px;
-background:red;
-top:-40px;
-}
-
-.card{
-width:60px;
-height:60px;
-background:#333;
-display:inline-block;
-margin:5px;
-line-height:60px;
-font-size:22px;
-cursor:pointer;
-}
-
+body{margin:0;font-family:Arial;background:#111;color:white;text-align:center;}
+button{padding:10px 18px;margin:5px;font-size:16px;cursor:pointer;}
+#game{position:relative;width:400px;height:500px;background:#222;margin:20px auto;overflow:hidden;border:3px solid white;}
+#cube{position:absolute;width:40px;height:40px;bottom:10px;left:180px;background:#00ffc8;}
+.coin{position:absolute;width:20px;height:20px;background:gold;border-radius:50%;top:-20px;}
+.obstacle{position:absolute;width:40px;height:40px;background:red;top:-40px;}
+.card{width:60px;height:60px;background:#333;display:inline-block;margin:5px;line-height:60px;font-size:22px;cursor:pointer;}
 </style>
 </head>
-
 <body>
 
 <h1>MoMe Arcade v2</h1>
 
 <div id="menu">
-
 <button onclick="openGame('cube')">Cube Escape</button>
-
 <button onclick="openGame('coin')">Coin Collector</button>
-
 <button onclick="openProfile()">Player Profile</button>
-
 <button onclick="openLeaderboard()">Leaderboard</button>
-
 </div>
 
 <div id="content"></div>
 
 <script>
-
 // ==========================
 // SUPABASE
 // ==========================
-
-const supabaseUrl="https://atzcoxkslomommgmjohp.supabase.co"
-
-const supabaseKey="YOUR_ANON_KEY"
-
-const supabase=supabase.createClient(supabaseUrl,supabaseKey)
-
+const SUPABASE_URL="https://atzcoxkslomommgmjohp.supabase.co";
+const SUPABASE_KEY="YOUR_ANON_KEY";
+const db = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 // ==========================
 // PLAYER
 // ==========================
-
-let playerName=localStorage.getItem("player")||"Unknown"
-
-let coins=parseInt(localStorage.getItem("coins"))||0
-
-let cubeX=180
-
-let score=0
-
-let level=1
-
-let gameOver=false
-
-let skin="#00ffc8"
-
+let playerName=localStorage.getItem("player")||"Unknown";
+let coins=parseInt(localStorage.getItem("coins"))||0;
+let cubeX=180;
+let score=0;
+let level=1;
+let gameOver=false;
+let skin="#00ffc8";
 
 // ==========================
 // PROFILE
 // ==========================
-
 function openProfile(){
-
 document.getElementById("content").innerHTML=`
-
 <h2>Player Profile</h2>
-
 <input id="nameInput" placeholder="Player name">
-
 <button onclick="saveName()">Save</button>
-
 <p>Name: ${playerName}</p>
-
-<p>Coins: ${coins}</p>
-
-`
-
+<p>Coins: ${coins}</p>`;
 }
 
 function saveName(){
-
-playerName=document.getElementById("nameInput").value
-
-localStorage.setItem("player",playerName)
-
-alert("Saved")
-
+playerName=document.getElementById("nameInput").value;
+localStorage.setItem("player",playerName);
+alert("Saved!");
 }
-
 
 // ==========================
 // LEADERBOARD
 // ==========================
-
 async function openLeaderboard(){
-
-document.getElementById("content").innerHTML="<h2>Leaderboard</h2><div id='scores'>Loading...</div>"
-
-const {data}=await supabase
+document.getElementById("content").innerHTML="<h2>Leaderboard</h2><div id='scores'>Loading...</div>";
+const {data}=await db
 .from("leaderboard")
 .select("*")
 .order("score",{ascending:false})
-.limit(10)
-
-let html="<ol>"
-
-data.forEach(p=>{
-html+=`<li>${p.player_name} - ${p.score}</li>`
-})
-
-html+="</ol>"
-
-document.getElementById("scores").innerHTML=html
-
+.limit(10);
+let html="<ol>";
+data.forEach(p=>{html+=`<li>${p.player_name} - ${p.score} (${p.game})</li>`;});
+html+="</ol>";
+document.getElementById("scores").innerHTML=html;
 }
-
 
 // ==========================
 // SAVE SCORE
 // ==========================
-
 async function saveScore(game,score){
-
-await supabase
-.from("leaderboard")
-.insert([{
-player_name:playerName,
-score:score,
-game:game
-}])
-
+await db.from("leaderboard").insert([{player_name:playerName,score:score,game:game}]);
 }
-
 
 // ==========================
 // CUBE ESCAPE
 // ==========================
-
 function openGame(game){
-
-if(game==="cube") cubeGame()
-
-if(game==="coin") coinGame()
-
+if(game==="cube") cubeGame();
+if(game==="coin") coinGame();
 }
-
 
 function cubeGame(){
-
 document.getElementById("content").innerHTML=`
-
 <h2>Cube Escape</h2>
-
 <p>Score: <span id="score">0</span></p>
-
 <p>Level: <span id="level">1</span></p>
-
 <p>Coins: <span id="coins">${coins}</span></p>
-
-<div id="game">
-
-<div id="cube"></div>
-
-</div>
-
+<div id="game"><div id="cube"></div></div>
 <button onclick="moveLeft()">⬅</button>
-
-<button onclick="moveRight()">➡</button>
-
-`
-
-cubeX=180
-score=0
-level=1
-gameOver=false
-
-startCube()
-
+<button onclick="moveRight()">➡</button>`;
+cubeX=180; score=0; level=1; gameOver=false;
+startCube();
 }
 
-
-function moveLeft(){
-
-cubeX-=20
-if(cubeX<0) cubeX=0
-
-document.getElementById("cube").style.left=cubeX+"px"
-
-}
-
-function moveRight(){
-
-cubeX+=20
-if(cubeX>360) cubeX=360
-
-document.getElementById("cube").style.left=cubeX+"px"
-
-}
-
+function moveLeft(){cubeX-=20;if(cubeX<0) cubeX=0; document.getElementById("cube").style.left=cubeX+"px";}
+function moveRight(){cubeX+=20;if(cubeX>360) cubeX=360; document.getElementById("cube").style.left=cubeX+"px";}
 
 function startCube(){
-
 document.addEventListener("keydown",e=>{
-
-if(e.key==="ArrowLeft") moveLeft()
-
-if(e.key==="ArrowRight") moveRight()
-
-})
-
-
-setInterval(()=>{
-
-if(gameOver) return
-
-createObstacle()
-
-},1000)
-
-
-setInterval(()=>{
-
-if(gameOver) return
-
-createCoin()
-
-},1500)
-
+if(e.key==="ArrowLeft") moveLeft();
+if(e.key==="ArrowRight") moveRight();
+});
+setInterval(()=>{if(gameOver) return; createObstacle();},1000);
+setInterval(()=>{if(gameOver) return; createCoin();},1500);
 }
-
 
 function createObstacle(){
-
-const o=document.createElement("div")
-
-o.className="obstacle"
-
-o.style.left=Math.random()*360+"px"
-
-document.getElementById("game").appendChild(o)
-
-let y=-40
-
+const o=document.createElement("div");
+o.className="obstacle";
+o.style.left=Math.random()*360+"px";
+document.getElementById("game").appendChild(o);
+let y=-40;
 const fall=setInterval(()=>{
-
-y+=6+(level)
-
-o.style.top=y+"px"
-
-const cubeRect=document.getElementById("cube").getBoundingClientRect()
-
-const obsRect=o.getBoundingClientRect()
-
-if(
-
-cubeRect.left<obsRect.right &&
-cubeRect.right>obsRect.left &&
-cubeRect.top<obsRect.bottom &&
-cubeRect.bottom>obsRect.top
-
-){
-
-gameOver=true
-
-alert("Game Over Score "+score)
-
-saveScore("cube",score)
-
-clearInterval(fall)
-
+y+=6+(level);
+o.style.top=y+"px";
+const cubeRect=document.getElementById("cube").getBoundingClientRect();
+const obsRect=o.getBoundingClientRect();
+if(cubeRect.left<obsRect.right && cubeRect.right>obsRect.left && cubeRect.top<obsRect.bottom && cubeRect.bottom>obsRect.top){
+gameOver=true;
+alert("Game Over! Score: "+score);
+saveScore("cube_escape",score);
+clearInterval(fall);
 }
-
-
-if(y>500){
-
-o.remove()
-
-score++
-
-document.getElementById("score").textContent=score
-
-if(score%10===0){
-
-level++
-
-document.getElementById("level").textContent=level
-
+if(y>500){o.remove(); score++; document.getElementById("score").textContent=score;
+if(score%10===0){level++; document.getElementById("level").textContent=level;}
+clearInterval(fall);}
+},30);
 }
-
-clearInterval(fall)
-
-}
-
-},30)
-
-}
-
 
 function createCoin(){
-
-const c=document.createElement("div")
-
-c.className="coin"
-
-c.style.left=Math.random()*380+"px"
-
-document.getElementById("game").appendChild(c)
-
-let y=-20
-
+const c=document.createElement("div");
+c.className="coin";
+c.style.left=Math.random()*380+"px";
+document.getElementById("game").appendChild(c);
+let y=-20;
 const fall=setInterval(()=>{
-
-y+=4
-
-c.style.top=y+"px"
-
-const cubeRect=document.getElementById("cube").getBoundingClientRect()
-
-const coinRect=c.getBoundingClientRect()
-
-if(
-
-cubeRect.left<coinRect.right &&
-cubeRect.right>coinRect.left &&
-cubeRect.top<coinRect.bottom &&
-cubeRect.bottom>coinRect.top
-
-){
-
-coins++
-
-localStorage.setItem("coins",coins)
-
-document.getElementById("coins").textContent=coins
-
-c.remove()
-
-clearInterval(fall)
-
+y+=4;
+c.style.top=y+"px";
+const cubeRect=document.getElementById("cube").getBoundingClientRect();
+const coinRect=c.getBoundingClientRect();
+if(cubeRect.left<coinRect.right && cubeRect.right>coinRect.left && cubeRect.top<coinRect.bottom && cubeRect.bottom>coinRect.top){
+coins++; localStorage.setItem("coins",coins);
+document.getElementById("coins").textContent=coins;
+c.remove(); clearInterval(fall);
 }
-
-if(y>500){
-
-c.remove()
-
-clearInterval(fall)
-
+if(y>500){c.remove(); clearInterval(fall);}
+},30);
 }
-
-},30)
-
-}
-
 
 // ==========================
-// COIN GAME
+// COIN COLLECTOR GAME
 // ==========================
-
 function coinGame(){
-
 document.getElementById("content").innerHTML=`
-
 <h2>Coin Collector</h2>
-
 <p>Score: <span id="score">0</span></p>
-
-<div id="game">
-
-<div id="cube"></div>
-
-</div>
-
+<div id="game"><div id="cube"></div></div>
 <button onclick="moveLeft()">⬅</button>
-
-<button onclick="moveRight()">➡</button>
-
-`
-
-cubeX=180
-score=0
-
-setInterval(()=>{
-
-createCoin()
-
-},1000)
-
+<button onclick="moveRight()">➡</button>`;
+cubeX=180; score=0;
+setInterval(()=>{createCoin();},1000);
 }
 
 </script>
-
 </body>
 </html>
